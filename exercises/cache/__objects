@@ -1,0 +1,24 @@
+load-packages	.Random.seed
+read-in-data	d.drain	d.ph10	d.ph10.val	d.wlog100	l.covar	berne
+apply-example	ii	t.result
+lasso-continuous-response	g.groups	l.factors	l.numeric	ph.cvfit	t.f	XX
+lasso-predictions	idx.se	l.se	newXX	ph.lasso.cv.pred	t.pred.val
+lasso-get-model	t.coef
+lasso-plot-cv	
+lasso-multinomial-response	drain.cvfit	XX
+lasso-multinomial-response-coeffs	drain.fit
+svm	ctrl	sig	svm.model	svm.tune1	t.sigma	tune.grid	XX
+svm-validation-plots	newXX	t.pred.val
+random-forest	f.tune.randomforest	mtry.oob	rf.model.basic	rf.model.tuned	s.mtry	seq.mtry	t.OOBe
+random-forest-plot-mtry	
+boosted-trees-tuning	gbm.grid	gbm.model
+boosted-trees-map	berne.grid
+boosted-trees-partial-dependencies	ix	name	t.imp	t.names
+glmboost	ph.glmboost	ph.glmboost.cv
+glmboost-plot	
+gamboost	d.ph10	f.fact	f.int	f.num	f.resp	f.spat	ph.form	ph.gamboost	ph.gamboost.cv
+gamboost-results	t.sel
+gamboost-partial-plots	
+gamboost-partial-plots-spatial	
+session-info	
+export-r-code	

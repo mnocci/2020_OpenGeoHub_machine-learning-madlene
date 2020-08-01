@@ -1,0 +1,14 @@
+\babel@toc {english}{}
+\babel@toc {english}{}
+\contentsline {section}{\numberline {1}Lasso -- linear shrinkage method}{2}{section.1}% 
+\contentsline {paragraph}{Lasso for continuous response}{2}{section*.4}% 
+\contentsline {paragraph}{Lasso for multinomial response}{4}{section*.6}% 
+\contentsline {paragraph}{Please continue:}{5}{section*.7}% 
+\contentsline {section}{\numberline {2}Support vector machines}{6}{section.2}% 
+\contentsline {section}{\numberline {3}Random forest}{8}{section.3}% 
+\contentsline {paragraph}{Please continue:}{9}{section*.10}% 
+\contentsline {section}{\numberline {4}Gradient boosting}{10}{section.4}% 
+\contentsline {subsection}{\numberline {4.1}Boosting with trees as baselearners}{10}{subsection.4.1}% 
+\contentsline {subsection}{\numberline {4.2}Boosting with linear baselearners (advanced task)}{12}{subsection.4.2}% 
+\contentsline {subsection}{\numberline {4.3}Boosting with splines baselearners (advanced task)}{12}{subsection.4.3}% 
+\contentsline {section}{\numberline {5}Model averaging}{16}{section.5}% 

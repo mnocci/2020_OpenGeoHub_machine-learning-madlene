@@ -1,0 +1,16 @@
+base
+knitr
+grpreg
+Matrix
+glmnet
+kernlab
+lattice
+ggplot2
+caret
+randomForest
+stabs
+mboost
+gbm
+geoGAM
+sp
+raster

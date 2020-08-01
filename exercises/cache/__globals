@@ -1,0 +1,24 @@
+load-packages	library
+read-in-data	!	&	==	$	berne	complete.cases	data	dim	is.na	names	ncol
+apply-example	^	c	for	sapply
+lasso-continuous-response	!	~	$	c	cv.grpreg	d.ph10	F	is.factor	l.covar	lapply	length	model.matrix	names	nlevels	rep	sapply	T	unlist
+lasso-predictions	<	~	$	c	d.ph10.val	F	l.factors	l.numeric	min	model.matrix	ph.cvfit	predict	which
+lasso-get-model	>	$	idx.se	ph.cvfit
+lasso-plot-cv	$	abline	idx.se	l.se	log	ph.cvfit	plot
+lasso-multinomial-response	~	$	cv.glmnet	d.drain	l.covar	length	model.matrix	sample	set.seed	T
+lasso-multinomial-response-coeffs	$	d.drain	drain.cvfit	glmnet	XX
+svm	>	~	$	abs	c	d.ph10	expand.grid	F	l.covar	model.matrix	round	seq	set.seed	sort	train	trainControl	unique
+svm-validation-plots	~	$	abline	c	d.ph10.val	F	l.covar	lines	lowess	model.matrix	par	plot	predict.train	svm.model
+random-forest	==	$	c	d.ph10	data.frame	l.covar	length	mclapply	randomForest	return	set.seed	tail	unlist	which.min
+random-forest-plot-mtry	$	abline	lines	lowess	mtry.oob	plot	s.mtry
+boosted-trees-tuning	$	c	d.ph10	expand.grid	l.covar	seq	set.seed	train	trainControl
+boosted-trees-map	~	$<-	coordinates<-	CRS	data	gbm.model	gridded<-	plot	predict.train	proj4string<-	raster
+boosted-trees-partial-dependencies	[[	==	$	c	dimnames	for	gbm.model	order	par	plot	sum	T	varImp	which
+glmboost	::	~	boost_control	c	cvrisk	d.ph10	glmboost	l.covar	model.weights	mstop	set.seed
+glmboost-plot	ph.glmboost.cv	plot
+gamboost	::	$<-	as.formula	boost_control	c	cvrisk	gamboost	l.factors	l.numeric	model.weights	nrow	paste	rep
+gamboost-results	$	length	mstop	ph.gamboost	ph.gamboost.cv	ph.glmboost.cv	summary
+gamboost-partial-plots	c	mstop	names	par	ph.gamboost	ph.glmboost.cv	plot	t.sel
+gamboost-partial-plots-spatial	c	grep	mstop	names	par	ph.gamboost	ph.glmboost.cv	plot	T	t.sel
+session-info	sessionInfo	toLatex
+export-r-code	
