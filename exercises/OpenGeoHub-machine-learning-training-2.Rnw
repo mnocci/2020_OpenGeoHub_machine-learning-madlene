@@ -90,9 +90,9 @@ breaklinks=true, bookmarksnumbered=true
 {\Large\textsf{Practical training}  }
 
 \vspace{0.5cm}
-\textsf{Madlene Nussbaum, 4/5 September 2019}
+\textsf{Madlene Nussbaum,  20 August 2020}
 
-{ \small \textsf{\copyright~ CC-BY-NC-SA } 	} 
+{ \small \textsf{\copyright~ CC-BY 4.0} 	} 
 \bigskip
 
 

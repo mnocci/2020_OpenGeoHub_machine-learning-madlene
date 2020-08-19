@@ -91,9 +91,9 @@ breaklinks=true, bookmarksnumbered=true
 {\Large\textsf{Practical training}  }
 
 \vspace{0.5cm}
-\textsf{Madlene Nussbaum, 4/5 September 2019}
+\textsf{Madlene Nussbaum, 20 August 2020}
 
-{ \small \textsf{\copyright~ CC-BY-NC-SA } 	} 
+{ \small \textsf{\copyright~ CC-BY 4.0} 	} 
 \bigskip
 
 
@@ -129,13 +129,13 @@ opts_chunk$set(autodep = TRUE)
 Load needed packages:
 
 <<load-packages,message=FALSE>>=
-# install.packages(c("grpgreg", "glmnet", "kernlab", "caret", "randomForest", "mboost",
+# install.packages(c("grpgreg", "glmnet", "kernlab", "caret", "ranger", "mboost",
 #                    "gbm", "geoGAM", "raster"))
 library(grpreg) # for grouped lasso
 library(glmnet) # for general lasso
 library(kernlab) # for support vector machines
 library(caret) # for model tuning
-library(randomForest) # to fit random forest
+library(ranger) # to fit random forest
 library(mboost) # for the boosting models with linear and spline terms  
 library(gbm) # for the boosting model with trees
 library(geoGAM) # for the berne dataset
@@ -386,38 +386,38 @@ lines(lowess(t.pred.val, d.ph10.val[, "ph.0.10"]), col = "darkgreen", lwd = 2)
 \clearpage 
 \section{Random forest}
 
-Here we fit a random forest with the package \texttt{randomForest}. If you work with very large datasets consider using the package \texttt{ranger}. More important: use paralell computing as demonstrated here with the function \texttt{mclapply} (does not work on Windows, then use \texttt{mc.cores = 1}). 
+Here we fit a random forest with the package \texttt{ranger}, a fast implementation of this algorithm for large data sets. More important: use paralell computing as demonstrated here e.g. with the function \texttt{mclapply} (does not work on Windows, then use \texttt{mc.cores = 1}). 
 
-This is advanced programming with functions and \texttt{apply}. But, I wanted to show how you can do the tuning of a ML method yourself without using a meta-function like \texttt{train} from package \texttt{caret} (see below). Like this you can control it does what it should (and the code is not much longer)
+This is advanced programming with functions and \texttt{apply}. But, I wanted to show how you can do the tuning of a ML method yourself without using a meta-function like \texttt{train} from package \texttt{caret} (see below). Like this you can control that it does what you acctually want to achieve (and the code is not much longer)
 
 <<random-forest,cache=TRUE>>=
 
 # Fit a random forest with default parameters 
 # (often results are already quite good)
 set.seed(1)
-rf.model.basic <- randomForest(x = d.ph10[, l.covar ],
-                               y = d.ph10[, "ph.0.10"])
+rf.model.basic <- ranger(x = d.ph10[, l.covar ],
+                         y = d.ph10[, "ph.0.10"])
 
 # tune main tuning parameter "mtry"
 # (the number of covariates that are randomly selected to try at each split)
 
 # define function to use below
 f.tune.randomforest <- function(test.mtry, # mtry to test
-                                d.cal,     # calibration data
+                                d.cal,     # calibration data.frame
                                 l.covariates ){ # list of covariates
   # set seed 
   set.seed(1)
   # fit random forest with mtry = test.mtry
-  rf.tune <- randomForest(x = d.cal[, l.covariates ],
-                          y = d.cal[, "ph.0.10"],
-                          mtry = test.mtry)
+  rf.tune <- ranger(x = d.cal[, l.covariates ],
+                    y = d.cal[, "ph.0.10"],
+                    mtry = test.mtry)
   # return the mean squared error (mse) of this model fit
-  return( tail(rf.tune$mse, n=1) )
+  return( rf.tune$prediction.error ) 
 }
 
 # vector of mtry to test 
-seq.mtry <- c(1:(length(l.covar) - 1))
-# Only take every fifth for speed reasons
+seq.mtry <- 1:(length(l.covar) - 1)
+# Only take every fifth mtry to speed up tuning
 seq.mtry <- seq.mtry[ seq.mtry %% 5 == 0 ] 
 
 # Apply function to sequence. 
@@ -442,9 +442,9 @@ s.mtry <- mtry.oob$mtry.n[ which.min(mtry.oob$mtry.OOBe) ]
 
 # compute random forest with optimal mtry 
 set.seed(1)
-rf.model.tuned <- randomForest(x = d.ph10[, l.covar ],
-                               y = d.ph10[, "ph.0.10"],
-                               mtry = s.mtry)
+rf.model.tuned <- ranger(x = d.ph10[, l.covar ],
+                         y = d.ph10[, "ph.0.10"],
+                         mtry = s.mtry)
 @
 
 
@@ -460,7 +460,7 @@ lines( lowess( mtry.oob$mtry.n, mtry.oob$mtry.OOBe ), lwd = 1.5, col = "darkgrey
 
 \begin{itemize}
 \item Compute the predictions for the validation set with the tuned and the model with default values (\texttt{predict(rf.model.tuned, newdata = ...)}) and compute a root mean squared error. Was the tuning effort worthwhile? 
-\item Implement the same tunging with the package \texttt{caret}. Check the option \texttt{methofd="oob"} of \texttt{trainControl}. This function is handed to \texttt{train}. 
+\item Implement the same tunging with the package \texttt{caret}. Check the option \texttt{method="oob"} of \texttt{trainControl}. This function is handed to \texttt{train}. 
 \end{itemize}
 
 
@@ -695,7 +695,7 @@ toLatex(sessionInfo(), locale = FALSE)
 \normalsize
 
 <<export-r-code,echo=FALSE,result="hide">>=
-# purl("OpenGeoHub-machine-learning-training-1.Rnw")
+purl("OpenGeoHub-machine-learning-training-1.Rnw")
 @
 
 
