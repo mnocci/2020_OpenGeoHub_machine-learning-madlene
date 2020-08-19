@@ -9,13 +9,16 @@ opts_chunk$set(autodep = TRUE)
 
 
 ## ----load-packages,message=FALSE----------------------------------
-library(randomForest) # for random forest models
+library(ranger) # for random forest models
 library(quantregForest) # for quantile random forest
 library(grpreg) # for group lasso
 library(geoGAM) # for the Berne test data set
+library(ggplot2) # for graphics 
+library(pdp) # for partial dependence plots
 
 
 ## ----read-in-data-------------------------------------------------
+data(berne)
 dim(berne)
 # Select soil pH in 0-10 cm as continuous response, 
 # select calibration data and remove rows with missing pH 
@@ -27,12 +30,24 @@ l.covar <- names(d.ph10[, 13:ncol(d.ph10)])
 
 ## ----fit-random-forest,cache=TRUE---------------------------------
 set.seed(17)
-rf.ph <- randomForest(x = d.ph10[, l.covar],
-                      y = d.ph10$ph.0.10)
+rf.ph <- ranger(x = d.ph10[, l.covar],
+                y = d.ph10$ph.0.10, 
+                importance = "permutation") 
 
 
-## ----plot-covar-importance, fig.width=5, fig.height=6, fig.align='center', fig.pos="!hb", out.width='0.5\\textwidth', fig.cap="Covariate importance of 20 most important covariates for topsoil pH (before selection)."----
-varImpPlot(rf.ph, n.var = 20, main = "")
+## ----plot-covar-importance, fig.width=5, fig.height=6, fig.align='center', fig.pos="!hb", out.width='0.6\\textwidth', fig.cap="Covariate importance of 30 most important covariates for topsoil pH (before selection)."----
+# Create data frame with largest importance first
+d.imp <- data.frame(variable = names(rf.ph$variable.importance), 
+                    importance = rf.ph$variable.importance)
+d.imp <- d.imp[order(d.imp$importance, decreasing = T), ] 
+ggplot(d.imp[1:30, ], aes(x = reorder(variable, importance), 
+                          y = importance, fill = importance)) + 
+  geom_bar(stat = "identity", position = "dodge") + 
+  coord_flip() +
+  ylab("Variable Importance") +
+  xlab("") +
+  theme(legend.position = "none") +
+  scale_fill_gradient(low = "grey", high = "darkblue")
 
 
 ## ----select-random-forest,cache=TRUE------------------------------
@@ -46,20 +61,22 @@ qrf.elim <- oob.mse <- list()
 
 # save model and OOB error of current fit        
 qrf.elim[[1]] <- rf.ph
-oob.mse[[1]] <- tail(qrf.elim[[1]]$mse, n=1)
+oob.mse[[1]] <- qrf.elim[[1]]$prediction.error
 l.covar.sel <- l.covar
 
 # Iterate through number of retained covariates           
 for( ii in 1:length(s.seq) ){
-  t.imp <- importance(qrf.elim[[ii]], type = 2)
-  t.imp <- t.imp[ order(t.imp[,1], decreasing = T),]
-  
-  qrf.elim[[ii+1]] <- randomForest(x = d.ph10[, names(t.imp[1:s.seq[ii]])],
-                                   y = d.ph10$ph.0.10 )
-  oob.mse[[ii+1]] <- tail(qrf.elim[[ii+1]]$mse,n=1)
+  # Get importance, decreasingly ordered
+  t.imp <- qrf.elim[[ii]]$variable.importance[ 
+    order(qrf.elim[[ii]]$variable.importance, decreasing = T) ]
+
+  qrf.elim[[ii+1]] <- ranger(x = d.ph10[, names(t.imp[1:s.seq[ii]])],
+                             y = d.ph10$ph.0.10,
+                             num.threads = 1, # set the number of CPUs
+                             importance = "permutation")
+  oob.mse[[ii+1]] <- qrf.elim[[ii+1]]$prediction.error
   
 }
-
 
 # Prepare a data frame for plot
 elim.oob <- data.frame(elim.n = c(length(l.covar), s.seq[1:length(s.seq)]), 
@@ -143,80 +160,75 @@ abline(h=0, lty = 2)
 # select the model with minimum OOB error
 rf.selected <- qrf.elim[[ which.min(elim.oob$elim.OOBe)]]
 
-t.imp <- importance(rf.selected, type = 2)
-t.imp <- t.imp[ order(t.imp[,1], decreasing = T),]
+t.imp <- rf.selected$variable.importance[ 
+  order(rf.selected$variable.importance, decreasing = T)]
 
-# 4 most important covariates
-( t.3 <- names( t.imp[ 1:4 ] ) )
+# 6 most important covariates
+t.6 <- names( t.imp[ 1:6 ] )
 
-par( mfrow = c(2,2))
-
-# Bug in partialPlot(): function does not allow a variable for the 
-#  covariate name (e. g. x.var = name) in a loop
-partialPlot(x = rf.selected, 
-            pred.data = d.ph10[, names(rf.selected$forest$xlevels)], 
-            x.var = "cl_mt_rr_3", ylab = "ph [-]", main = "") 
-partialPlot(x = rf.selected, 
-            pred.data = d.ph10[, names(rf.selected$forest$xlevels)], 
-            x.var = "cl_mt_rr_11", ylab = "ph [-]", main = "" ) 
-partialPlot(x = rf.selected, 
-            pred.data = d.ph10[, names(rf.selected$forest$xlevels)], 
-            x.var = "timeset", ylab = "ph [-]", main = "" ) 
-partialPlot(x = rf.selected, 
-            pred.data = d.ph10[, names(rf.selected$forest$xlevels)], 
-            x.var = "cl_mt_rr_y", ylab = "ph [-]", main = "" ) 
-
+# Create partial dependence plots for the 6 most important covariates 
+# list with 6 plots
+l.plots <- lapply(t.6, 
+                  function(n.var){ 
+                    plotPartial(partial(rf.selected, 
+                                        pred.var = n.var, 
+                                        train = d.ph10)) 
+                    } 
+                  )
+# Create layout for the resulting trellis plots (Package lattice)
+grid.arrange(l.plots[[1]], l.plots[[2]], l.plots[[3]], 
+             l.plots[[4]], l.plots[[5]], l.plots[[6]], ncol = 2)
 
 
 ## ----quantRF,cache=TRUE-------------------------------------------
 # Fit quantile regression forest 
-ph.quantRF <- quantregForest(x = d.ph10[, l.covar[1:30]],
-                             y = d.ph10$ph.0.10) 
+ph.quantRF <- ranger(x = d.ph10[, l.covar[1:30]],
+                     y = d.ph10$ph.0.10,
+                     quantreg = T) 
 
 # select validation data
 d.ph10.val <- berne[berne$dataset == "validation" & !is.na(berne$ph.0.10), ]
 d.ph10.val <- d.ph10.val[complete.cases(d.ph10.val[l.covar]), ]
 
 # compute predictions (mean) for each validation site
-# (use function from random forest package)
-ph.pred <- randomForest:::predict.randomForest(ph.quantRF,
-                                               newdata = d.ph10.val)
+ph.pred <- predict(ph.quantRF, data = d.ph10.val, what = mean)
 
 
 ## ----investigate-single-point,echo=FALSE,fig.pos='!h',fig.height=5,fig.width=4,fig.align='center', out.width='0.4\\textwidth',fig.cap= "Histogram of predictive distribution for one single prediction point (dotted lines: 90 \\% prediction interval, dashed line: mean prediction)."----
 
 ## predict 0.01, 0.02,..., 0.99 quantiles for validation data
 ph.pred.distribution <- predict(ph.quantRF,
-                                newdata = d.ph10.val, 
-                                what = seq(0.01, 0.99, by = 0.01))
+                                data = d.ph10.val, 
+                                type = "quantiles",
+                                quantiles = seq(0.01, 0.99, by = 0.01))
 
 # plot predictive distribution for one site
 sel.site <- 12
-hist( ph.pred.distribution[sel.site,], 
+hist( ph.pred.distribution$predictions[sel.site,], 
       col = "grey", main = "",
       xlab = "predicted pH [-]", breaks = 12)
 
-# add 90 % prediction interval to plot
-abline(v = c( ph.pred.distribution[sel.site, "quantile= 0.05"],
-              ph.pred.distribution[sel.site, "quantile= 0.95"]), 
+# add 90 % prediction interval and mean (dashed) to plot
+abline(v = c( ph.pred.distribution$predictions[sel.site, "quantile= 0.05"],
+              ph.pred.distribution$predictions[sel.site, "quantile= 0.95"]), 
        lty = "dotted")
-abline(v = ph.pred[sel.site], lty = "dashed")
+abline(v = ph.pred$predictions[sel.site], lty = "dashed")
 
 
 ## ----create-intervall-plot,fig.height=5,fig.align='center',echo=FALSE, out.width='0.8\\textwidth',fig.cap= "Coverage of 90 \\%-prediction intervals computed by model-based boostrap."----
 
 # get 90% quantiles for each point
 t.quant90 <- cbind( 
-  ph.pred.distribution[, "quantile= 0.05"],
-  ph.pred.distribution[, "quantile= 0.95"])
+  ph.pred.distribution$predictions[, "quantile= 0.05"],
+  ph.pred.distribution$predictions[, "quantile= 0.95"])
 
 # get index for ranking in the plot
-t.ix <- sort( ph.pred, index.return = T )$ix
+t.ix <- sort( ph.pred$predictions, index.return = T )$ix
 
 # plot predictions in increasing order
 plot(
-  ph.pred[t.ix], type = "n",
-  ylim = range(c(t.quant90, ph.pred, d.ph10.val$ph.0.10)),
+  ph.pred$predictions[t.ix], type = "n",
+  ylim = range(c(t.quant90, ph.pred$predictions, d.ph10.val$ph.0.10)),
   xlab = "rank of predictions", 
   ylab =  "ph [-]" 
 ) 
@@ -248,7 +260,7 @@ points(
   pch = c( 16, 1, 16)[t.col],
   col = c( "darkgreen", "black", "darkgreen" )[t.col]
 )
-points(ph.pred[t.ix], pch = 16, cex = 0.6, col = "grey60")
+points(ph.pred$predictions[t.ix], pch = 16, cex = 0.6, col = "grey60")
 
 # Add meaningfull legend
 legend( "topleft", 
@@ -276,7 +288,7 @@ legend( "topleft",
 ss <- seq(0,1,0.01)
 # compute coverage for sequence
 t.prop.inside <- sapply(ss, function(ii){
-  boot.quantile <-  t( apply(ph.pred.distribution, 1, quantile, 
+  boot.quantile <-  t( apply(ph.pred.distribution$predictions, 1, quantile, 
                              probs = c(0,ii) ) )[,2]
   return( sum(boot.quantile <= d.ph10.val$ph.0.10)/nrow(d.ph10.val) )
 })
@@ -296,5 +308,5 @@ toLatex(sessionInfo(), locale = FALSE)
 
 
 ## ----export-r-code,echo=FALSE,result="hide"-----------------------
-purl("OpenGeoHub-machine-learning-training-2.Rnw")
+# purl("OpenGeoHub-machine-learning-training-2.Rnw")
 

@@ -63,6 +63,8 @@ l.factors <- names(d.ph10[l.covar])[
 l.numeric <-  names(t.f[ !t.f ])
 
 # create a vector that labels the groups with the same number  
+#  each numeric has its own number
+#  all dummy variables of a factor go into one group and have the same number
 g.groups <- c( 1:length(l.numeric), 
                unlist( 
                  sapply(1:length(l.factors), function(n){
@@ -71,7 +73,9 @@ g.groups <- c( 1:length(l.numeric),
                ) 
 )
 # grpreg needs model matrix as input
-XX <- model.matrix( ~., d.ph10[, c(l.numeric, l.factors), F])[,-1]
+#  this creates dummy covariates, 
+#  without an intercept (-1) as it is added in grpreg
+XX <- model.matrix( ~., d.ph10[, c(l.numeric, l.factors)])[,-1]
 
 # cross validation (CV) to find lambda
 ph.cvfit <- cv.grpreg(X = XX, y = d.ph10$ph.0.10, 
@@ -101,7 +105,6 @@ t.coef[ t.coef > 0 ]
 
 
 ## ----lasso-plot-cv,echo=FALSE,fig.width=7,fig.height=4.5, fig.align='center', out.width='0.8\\textwidth',fig.cap = "Cross validation error plotted against the tuning parameter lambda. The dashed line indicates lambda at minimal error, the dotted darkgrey line is the optimal lambda with minimal error + 1 SE."----
-
 plot(ph.cvfit)
 abline( h = l.se, col = "grey", lty = "dotted")
 abline( v = log( ph.cvfit$lambda[ idx.se ]), col = "grey30", lty = "dotted")
@@ -143,8 +146,8 @@ XX <- model.matrix( ~., d.ph10[, c(l.covar), F])[,-1]
 # set seed for random numbers to split cross-valiation sets
 set.seed(31)
 # Setup for 10fold cross-validation
-ctrl <- trainControl(method="cv",   
-                     number=10,		   
+ctrl <- trainControl(method = "cv",   
+                     number = 10,		   
                      savePredictions = "final")
 
 # 1. pass of training - find region of C and lambda 
@@ -166,17 +169,15 @@ tune.grid <- expand.grid(
                            svm.tune1$bestTune$C - seq(0, 0.3, by = 0.1), 
                            svm.tune1$bestTune$C + seq(0, 0.3, by = 0.1) )) ))
 )
-#Train and Tune the SVM
+# Train and Tune the SVM
 svm.model <- train(x = XX,
                    y = d.ph10[, "ph.0.10"],
                    method = "svmRadial",
                    preProc = c("center","scale"),
                    tuneGrid = tune.grid,
                    trControl = ctrl)
-
 # -> if this takes too long: take a short cut with
 # svm.model <- svm.tune1
-
 
 
 ## ----svm-validation-plots,fig.width=10,fig.height=5, fig.align='center', out.width='0.85\\textwidth',fig.cap = "Predictions from cross-validation (left) and the validation dataset (right) plotted against the observed values (dashed: 1:1-line, green: lowess scatterplott smoother)."----
@@ -233,6 +234,7 @@ seq.mtry <- 1:(length(l.covar) - 1)
 seq.mtry <- seq.mtry[ seq.mtry %% 5 == 0 ] 
 
 # Apply function to sequence. 
+# (without parallel computing this takes a while)
 t.OOBe <-   mclapply(seq.mtry, # give sequence 
                      FUN = f.tune.randomforest, # give function name
                      mc.cores = 1, ## number of CPUs 
@@ -272,9 +274,9 @@ lines( lowess( mtry.oob$mtry.n, mtry.oob$mtry.OOBe ), lwd = 1.5, col = "darkgrey
 # main tuning parameters are: 
 gbm.grid <- expand.grid(
   # how many splits does each tree have
-  interaction.depth = c(2,5,10,15,20),
+  interaction.depth = c(2,5,10),
   # how many trees do we add (number of iterations of boosting algorithm)
-  n.trees = seq(2,250, by = 5),
+  n.trees = seq(2,100, by = 5),
   # put the shrinkage factor to 0.1 (=10% updates as used 
   # in package mboost), the default (0.1%) is a bit too small, 
   # makes model selection too slow. 
@@ -284,11 +286,11 @@ gbm.grid <- expand.grid(
 # make tuning reproducible (there are random samples for the cross validation)
 set.seed(291201945)
 
-# train the gbm model 
-# Remove "ge_caco3" throws an error since Package gbm 2.1.5, 
-# this bug is reported: https://github.com/gbm-developers/gbm/issues/40
-gbm.model <- train(x=d.ph10[, l.covar[-c(50)]  ], 
-                   y=d.ph10[, "ph.0.10"],
+# Train the gbm model 
+#   Remove "ge_caco3" throws an error since Package gbm 2.1.5,
+#   this bug is reported: https://github.com/gbm-developers/gbm/issues/40
+gbm.model <- train(x = d.ph10[, l.covar[-c(50)]], 
+                   y = d.ph10[, "ph.0.10"],
                    method = "gbm", # choose "generalized boosted regression model"
                    tuneGrid = gbm.grid,
                    verbose = FALSE,
@@ -436,5 +438,5 @@ toLatex(sessionInfo(), locale = FALSE)
 
 
 ## ----export-r-code,echo=FALSE,result="hide"-----------------------
-purl("OpenGeoHub-machine-learning-training-1.Rnw")
+# purl("OpenGeoHub-machine-learning-training-1.Rnw")
 
